@@ -1,0 +1,69 @@
+name: Update official data and publish
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 13:30 UTC = 21:30 Asia/Taipei, year-round.
+    - cron: '30 13 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: macro-lens-publish
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Fetch official data
+        run: python scripts/update_data.py
+      - name: Validate data and report generation contracts
+        run: python scripts/validate_data.py
+      - name: Save updated observations and source status
+        run: |
+          git config user.name 'Macro Lens data bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add dist/data/macro.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: refresh official economic indicators"
+            git push
+          fi
+      - name: Enable and configure public GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Publish website
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d=json.load(open('dist/data/macro.json'))
+          print('## Official data checks')
+          print('Last attempted:', d['generatedAt'])
+          for s in d['sources']:
+              print('- ' + ('✅' if s['status']=='ok' else '⚠️') + ' ' + s['name'] + ': ' + s.get('message','OK'))
+          PY
