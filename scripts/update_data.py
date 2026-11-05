@@ -235,16 +235,18 @@ def announcements():
 
 def calendar():
  # Extract announced future dates from official release pages; never estimate dates.
- out=[]
+ out=list(OLD.get('calendar',[]))
  for u,title,src in [('https://www.bls.gov/cpi/','美國CPI','BLS'),('https://www.bls.gov/news.release/empsit.toc.htm','美國非農就業','BLS'),('https://www.bea.gov/data/gdp/gross-domestic-product','美國GDP','BEA')]:
-  s=soup(u);t=s.get_text(' ',strip=True)
+  try:s=soup(u);t=s.get_text(' ',strip=True)
+  except Exception as e:
+   DATA['sources'].append({'name':title+'發布預告','status':'error','checkedAt':NOW,'message':str(e)[:150]});continue
   for pattern in [r'(?:Next release:|Next Release|scheduled to be released on|scheduled to be released)\s*([A-Za-z]+\s+\d{1,2},\s*20\d{2})']:
    m=re.search(pattern,t,re.I)
    if m:
     try:d=datetime.strptime(m[1],'%B %d, %Y').date().isoformat()
     except ValueError:continue
     if d>=TODAY:out.append({'date':d,'title':title,'source':src,'url':u,'note':'依官方預告；時間與異動請見原文'})
- DATA['calendar']=out
+ DATA['calendar']=sorted({(x['title'],x['date']):x for x in out if x['date']>=TODAY}.values(),key=lambda x:x['date'])
 
 JOBS=[('主計總處／GDP',dgbas),('國發會景氣燈號',ndc),('經濟部',moea),('財政部進出口',trade),('中央銀行',cbc),('TAIBOR銀行公會',taibor),('BLS物價與就業',bls),('美國財政部',treasury),('美國GDP BEA',bea_update),('Fed日圓匯率',lambda:fed_history('jpy')),('Fed廣義美元指數',lambda:fed_history('broad')),('臺灣證交所',twse),('官方新聞',announcements),('發布日曆',calendar)]
 news=[]
