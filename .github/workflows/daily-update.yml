@@ -31,7 +31,7 @@ jobs:
       - name: Fetch official data
         run: python scripts/update_data.py
       - name: Validate data and report generation contracts
-        run: python scripts/validate_data.py
+        run: npm test
       - name: Save updated observations and source status
         run: |
           git config user.name 'Macro Lens data bot'

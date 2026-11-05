@@ -3,6 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "description": "Official economic data dashboard and editable PowerPoint report studio",
-  "scripts": {"build": "node scripts/copy-vendor.mjs", "test": "node --check dist/app.js && python scripts/validate_data.py"},
-  "dependencies": {"echarts": "5.6.0", "pptxgenjs": "4.0.1"}
+  "scripts": {
+    "build": "node scripts/copy-vendor.mjs",
+    "test": "node --check dist/app.js && node --check dist/i18n.js && python scripts/validate_data.py && node tests/export-smoke.cjs"
+  },
+  "dependencies": {
+    "echarts": "5.6.0",
+    "pptxgenjs": "4.0.1"
+  }
 }
