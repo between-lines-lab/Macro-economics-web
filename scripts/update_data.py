@@ -160,7 +160,7 @@ def bls():
   if j.get('status')!='REQUEST_SUCCEEDED':raise ValueError(str(j.get('message')))
   pts=sorted((f'{p["year"]}-{p["period"][1:]}-01',float(p['value'])) for p in j['Results']['series'][0]['data'] if re.fullmatch(r'M(0[1-9]|1[0-2])',p['period']) and number(p['value']) is not None)
   add(key,title,unit,'美國經濟',yoy(pts) if transform else pts,'美國勞工統計局 BLS',u,note='CPI年增率採未季調指數；非農就業為季調後千人。')
-  if key=='us_payroll_total':add('us_payroll','非農就業月增人數','千人','美國經濟',[(pts[i][0],pts[i][1]-pts[i-1][1]) for i in range(1,len(pts))],'美國勞工統計局 BLS',u,note='以季調後總人數計算月增；包含官方歷史修正。')
+  if key=='us_payroll_total':add('us_payroll','非農就業月增人數','千人','美國經濟',[(pts[i][0],pts[i][1]-pts[i-1][1]) for i in range(1,len(pts)) if int(pts[i][0][:4])*12+int(pts[i][0][5:7])-int(pts[i-1][0][:4])*12-int(pts[i-1][0][5:7])==1],'美國勞工統計局 BLS',u,note='以季調後總人數計算月增；包含官方歷史修正。')
 
 def treasury():
  import xml.etree.ElementTree as ET
@@ -186,26 +186,52 @@ def fred():
   rows=list(csv.reader(io.StringIO(b.decode('utf-8-sig'))));pts=[(r[0],number(r[1])) for r in rows[1:] if len(r)>1]
   add(key,title,unit,'美國經濟' if key=='us_gdp' else '外匯動向' if key in ['usdjpy','broad_usd'] else '利率動向',pts,'BEA／Fed（經FRED）',u,'季' if key=='us_gdp' else '日',note)
 
+def fed_history(kind):
+ if kind=='jpy':
+  u='https://www.federalreserve.gov/releases/h10/Hist/dat00_ja.htm';key='usdjpy';title='美元兌日圓';unit='JPY / USD';note='紐約午間參考匯率；日觀測值由Fed按週公布，非東京收盤。'
+ else:
+  u='https://www.federalreserve.gov/releases/h10/summary/jrxwtfb_nb.htm';key='broad_usd';title='廣義美元指數';unit='指數';note='Fed Broad Dollar Index；日觀測值按週公布，並非ICE DXY。'
+ sp=soup(u);pts=[]
+ for row in sp.select('tr'):
+  cells=row.find_all(['td','th']);txt=[c.get_text(' ',strip=True) for c in cells]
+  if len(txt)>=2 and re.fullmatch(r'\d{1,2}-[A-Z]{3}-\d{2}',txt[0]) and number(txt[1]) is not None:
+   dt=datetime.strptime(txt[0],'%d-%b-%y').date().isoformat();pts.append((dt,number(txt[1])))
+ add(key,title,unit,'外匯動向',pts,'美國聯準會 Fed',u,'日',note)
+
+def bea_update():
+ u='https://www.bea.gov/data/gdp/gross-domestic-product';sp=soup(u);pts=[]
+ for tr in sp.select('tr'):
+  txt=tr.get_text(' ',strip=True);m=re.search(r'Q([1-4])\s+(20\d{2}).*?([+−-]?[\d.]+)%',txt)
+  if m:pts.append((f'{m[2]}-{(int(m[1])-1)*3+1:02d}-01',float(m[3].replace('−','-'))))
+ add('us_gdp','美國實質GDP季增年率','%','美國經濟',pts,'美國經濟分析局 BEA',u,'季','BEA實質GDP季增年率；與台灣年增率不同口徑。近期數據直接從BEA官方更新；初始歷史經FRED取得。')
+
 def twse():
  u='https://openapi.twse.com.tw/v1/indicesReport/MI_5MINS_HIST';rows=get(u).json();add('tw_stock','台灣加權指數','點','台灣經濟',[(day(r['Date']),number(r['ClosingIndex'])) for r in rows],'臺灣證券交易所',u,'日','官方最新月份每日收盤；自動累積歷史。')
 
 def announcements():
- allnews=[]
- for u,src,region in [('https://www.cbc.gov.tw/tw/lp-302-1.html','中央銀行','台灣'),('https://www.federalreserve.gov/feeds/press_monetary.xml','Federal Reserve','美國'),('https://www.bls.gov/feed/cpi.rss','BLS','美國')]:
-  s=soup(u)
-  if u.endswith(('.xml','.rss')):
-   for item in s.select('item')[:6]:
-    title=item.find('title');link=item.find('link');pub=item.find('pubdate')
-    if title and link:
-     from email.utils import parsedate_to_datetime
-     try:d=parsedate_to_datetime(pub.text).date().isoformat()
-     except Exception:d=TODAY
-     if d<=TODAY:allnews.append({'date':d,'title':title.text,'source':src,'region':region,'url':link.get_text() or link.next_sibling or ''})
-  else:
-   for row in s.select('tr'):
-    a=row.select_one('a[href]');t=row.get_text(' ',strip=True);m=re.search(r'20\d{2}[-/]\d{2}[-/]\d{2}',t)
-    if a and m:allnews.append({'date':day(m[0]),'title':a.get_text(' ',strip=True),'source':src,'region':region,'url':urljoin(u,a['href'])})
- return allnews
+ import xml.etree.ElementTree as ET
+ from email.utils import parsedate_to_datetime
+ news=[]
+ u='https://www.cbc.gov.tw/tw/lp-302-1.html'
+ try:
+  sp=soup(u)
+  for a in sp.select('a[href]'):
+   if 'cp-302-' not in a['href']:continue
+   txt=a.parent.get_text(' ',strip=True);m=re.search(r'20\d{2}[-/]\d{2}[-/]\d{2}',txt)
+   if m:
+    title=a.get_text(' ',strip=True);title=re.sub(r'^\d+\s+','',title);title=title.replace(m[0],'').strip()
+    news.append({'date':day(m[0]),'title':title,'source':'中央銀行','region':'台灣','url':urljoin(u,a['href'])})
+ except Exception as e:DATA['sources'].append({'name':'央行新聞','status':'error','checkedAt':NOW,'message':str(e)[:160]})
+ u='https://www.federalreserve.gov/feeds/press_monetary.xml'
+ try:
+  root=ET.fromstring(get(u).content)
+  for item in root.findall('.//item')[:8]:
+   title=item.findtext('title');link=item.findtext('link');pub=item.findtext('pubDate')
+   if title and link and pub:
+    dt=parsedate_to_datetime(pub).date().isoformat()
+    if dt<=TODAY:news.append({'date':dt,'title':title,'source':'Federal Reserve','region':'美國','url':link})
+ except Exception as e:DATA['sources'].append({'name':'Fed新聞','status':'error','checkedAt':NOW,'message':str(e)[:160]})
+ return news
 
 def calendar():
  # Extract announced future dates from official release pages; never estimate dates.
@@ -220,7 +246,7 @@ def calendar():
     if d>=TODAY:out.append({'date':d,'title':title,'source':src,'url':u,'note':'依官方預告；時間與異動請見原文'})
  DATA['calendar']=out
 
-JOBS=[('主計總處／GDP',dgbas),('國發會景氣燈號',ndc),('經濟部',moea),('財政部進出口',trade),('中央銀行',cbc),('TAIBOR銀行公會',taibor),('BLS物價與就業',bls),('美國財政部',treasury),('BEA／Fed via FRED',fred),('臺灣證交所',twse),('官方新聞',announcements),('發布日曆',calendar)]
+JOBS=[('主計總處／GDP',dgbas),('國發會景氣燈號',ndc),('經濟部',moea),('財政部進出口',trade),('中央銀行',cbc),('TAIBOR銀行公會',taibor),('BLS物價與就業',bls),('美國財政部',treasury),('美國GDP BEA',bea_update),('Fed日圓匯率',lambda:fed_history('jpy')),('Fed廣義美元指數',lambda:fed_history('broad')),('臺灣證交所',twse),('官方新聞',announcements),('發布日曆',calendar)]
 news=[]
 with cf.ThreadPoolExecutor(max_workers=8) as pool:
  futures={pool.submit(fn):name for name,fn in JOBS}

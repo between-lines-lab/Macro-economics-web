@@ -14,7 +14,7 @@
 
 `.github/workflows/daily-update.yml` 於每日 **13:30 UTC / 21:30 Asia/Taipei**、main推送或手動觸發。
 
-流程：取得官方資料 → 驗證日期/數值/12個月燈號/交叉匯率 → 保存資料與檢查狀態 → GitHub Pages發布。頁面無需開啟。GitHub排程非準時SLA，可能延遲。每日有資料檢查紀錄commit。
+流程：取得官方資料 → 驗證日期/數值/12個月燈號/交叉匯率 → 保存資料與檢查狀態 → 公開網站讀取更新資料。頁面無需開啟。GitHub排程非準時SLA，可能延遲。每日有資料檢查紀錄commit。
 
 個別來源失敗不清空最後有效值，頁面ⓘ顯示來源錯誤與各序列最後成功檢查時間。超過36小時沒有執行紀錄，狀態視窗顯示提醒。禁止以假數據或插值填補缺失。
 
@@ -31,7 +31,7 @@
 |銀行公會TAIBOR每日ZIP|3個月TAIBOR|初次近40個營業日後累積|
 |美國財政部XML|2/10年Par Yield Curve及期限利差|日；美國當日收盤通常要台灣隔日檢查才能取得|
 |BLS公開API|美國CPI/核心及非農|月；CPI年增採未季調指數；非農採季調千人，月增由相鄰月份計算並包含修正|
-|BEA/Fed，經St Louis Fed FRED官方分發|美國實質GDP、USD/JPY、廣義美元指數、政策上限|GDP季增年率；Fed H.10日觀測按週公布；非DXY、非盤中報價|
+|BEA/Fed官方發布頁（初始歷史含FRED）|美國實質GDP、USD/JPY、廣義美元指數、政策上限|GDP季增年率；Fed H.10日觀測按週公布；非DXY、非盤中報價|
 |TWSE OpenAPI|加權指數|官方最新月份；之後每日累積|
 
 TWD/JPY = USD/JPY ÷ USD/TWD。僅用同日資料計算，但兩個來源報價時點不同，為參考交叉匯率，非交易報價。美國GDP季增年率不可直接與台灣GDP年增率比較。
@@ -53,6 +53,8 @@ python -m http.server 8000 --directory dist
 
 前端為原生HTML/CSS/JS。ECharts 5.6.0與PptxGenJS 4.0.1由lockfile鎖定，部署時複製至本地vendor並附授權文字。PPTX使用原生OOXML圖表與內嵌工作簿，並非圖表截圖。未使用API密鑰、AI付費服務、商用市場報價或附件報告原文。
 
-部署至公開GitHub Pages：workflow會嘗試以 `actions/configure-pages` 啟用；若帳戶或組織策略不允許，擁有者需於Settings → Pages選GitHub Actions。Actions頁會顯示錯誤。
+公開網站：https://macro-lens-taiwan.selina84823.chatgpt.site
+
+網站由Sites承載；程式及每日資料更新保存在本GitHub儲存庫。網站開啟時讀取main分支的最新資料，連線失敗時退回網站內保存的資料並提示。GitHub Pages未啟用，不影響目前網址與每日更新。
 
 配色依指定瑞穗參考頁：#285AE1 / #08287F / #F0F4FF / #C0D2FF / #FFFFFF / #333333 / #D92214。景氣燈號保留官方五色。

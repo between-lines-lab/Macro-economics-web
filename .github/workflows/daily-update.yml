@@ -1,4 +1,4 @@
-name: Update official data and publish
+name: Update official economic data
 on:
   push:
     branches: [main]
@@ -8,8 +8,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
-  pages: write
-  id-token: write
 concurrency:
   group: macro-lens-publish
   cancel-in-progress: false
@@ -17,9 +15,6 @@ jobs:
   update-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -46,16 +41,6 @@ jobs:
             git commit -m "data: refresh official economic indicators"
             git push
           fi
-      - name: Enable and configure public GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-      - name: Publish website
-        id: deployment
-        uses: actions/deploy-pages@v4
       - name: Summary
         if: always()
         run: |
