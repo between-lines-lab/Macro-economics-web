@@ -80,11 +80,6 @@ def dgbas():
      label=re.sub(r'^[一二三四五六七][.．、]\s*','',label);val=number(row.iloc[6])
      if val is not None:pts.append([label,val])
    if pts:DATA['cpiCategories']={'period':per,'points':pts,'source':'主計總處','url':u,'published':pub,'checkedAt':NOW,'unit':'年增率 %'}
- # GDP: MOEA's published quarterly indicator cards, independently sourced from DGBAS.
- u='https://www.moea.gov.tw/Mns/dos/home/Home.aspx';s=soup(u);txt=s.get_text(' ',strip=True);pts=[]
- for y,q,pub,v in re.findall(r'(\d{3})年第(\d)季(?:\s*\([a-z]\))?\s*經濟成長率\s*(\d+/\d+/\d+)發布\s*([\d.]+)[%％]',txt):
-  pts.append((f'{int(y)+1911}-{(int(q)-1)*3+1:02d}-01',float(v)))
- if pts:add('tw_gdp','實質GDP年增率','%','台灣經濟',pts,'主計總處／經濟部',u,'季','官方首頁可取得之近期季度；未以插值延伸歷史。')
  # current news with exact source URLs and official release dates
  news=[]
  for a in home.select('a[href]'):
@@ -93,6 +88,17 @@ def dgbas():
    d=f'{int(m[1])+1911}-{m[2]}-{m[3]}'
    if d<=TODAY:news.append({'date':d,'title':m[4],'source':('國家發展委員會' if 'ndc.gov.tw' in a['href'] else '中央銀行' if 'cbc.gov.tw' in a['href'] else '主計總處'),'region':'台灣','url':urljoin(base,a['href'])})
  return news
+
+def taiwan_gdp():
+ # Official full history; only observed quarters, never annual forecasts.
+ u='https://www.stat.gov.tw/Point.aspx?n=3580&sid=t.1&sms=11480'
+ j=json.loads(soup(u).select_one('input[id$=hidChartData]')['value'])
+ series=max((x for x in j if x['Title']=='經濟成長率(yoy)'),key=lambda x:len(x['data']))
+ pts=[]
+ for p in series['data']:
+  m=re.fullmatch(r'(\d+)年第([1-4])季',p.get('Title',''))
+  if m:pts.append((f'{int(m[1])+1911}-{(int(m[2])-1)*3+1:02d}-01',number(p['Value'])))
+ add('tw_gdp','實質GDP年增率','%','台灣經濟',pts,'主計總處',u,'季','實質GDP對上年同季年增率；季度日期以季初表示，最新概估／初步值依官方修正。')
 
 def ndc():
  u='https://data.gov.tw/dataset/6099';s=soup(u);h=next(a['href'] for a in s.select('a[href]') if 'icon=.zip' in a['href']);z=zipfile.ZipFile(io.BytesIO(get(h).content));name=next(n for n in z.namelist() if n.endswith('景氣指標與燈號.csv') and 'schema' not in n)
@@ -180,7 +186,7 @@ def treasury():
 def fred():
  # Official Federal Reserve Bank of St. Louis distribution of BEA/Fed series.
  for code,key,title,unit,note in [('A191RL1Q225SBEA','us_gdp','美國實質GDP季增年率','%','BEA實質GDP季增年率；不能直接與台灣GDP年增率比較。'),('DTWEXBGS','broad_usd','廣義美元指數','指數','聯準會Broad Dollar Index，並非ICE DXY；日觀測值按週發布。'),('DEXJPUS','usdjpy','美元兌日圓','JPY / USD','紐約午間參考匯率，由Fed按週公布，並非東京收盤匯率。'),('DFEDTARU','us_policy','Fed目標利率上限','%','聯邦基金目標利率區間的上限。')]:
-  u=f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={code}&cosd=2021-01-01';b=get(u).content
+  u=f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={code}&cosd=2015-01-01';b=get(u).content
   if b[:2]==b'PK':
    z=zipfile.ZipFile(io.BytesIO(b));b=z.read(next(x for x in z.namelist() if x.endswith('.csv')))
   rows=list(csv.reader(io.StringIO(b.decode('utf-8-sig'))));pts=[(r[0],number(r[1])) for r in rows[1:] if len(r)>1]
@@ -248,7 +254,7 @@ def calendar():
     if d>=TODAY:out.append({'date':d,'title':title,'source':src,'url':u,'note':'依官方預告；時間與異動請見原文'})
  DATA['calendar']=sorted({(x['title'],x['date']):x for x in out if x['date']>=TODAY}.values(),key=lambda x:x['date'])
 
-JOBS=[('主計總處／GDP',dgbas),('國發會景氣燈號',ndc),('經濟部',moea),('財政部進出口',trade),('中央銀行',cbc),('TAIBOR銀行公會',taibor),('BLS物價與就業',bls),('美國財政部',treasury),('美國GDP BEA',bea_update),('Fed日圓匯率',lambda:fed_history('jpy')),('Fed廣義美元指數',lambda:fed_history('broad')),('臺灣證交所',twse),('官方新聞',announcements),('發布日曆',calendar)]
+JOBS=[('主計總處',dgbas),('台灣GDP歷史',taiwan_gdp),('國發會景氣燈號',ndc),('經濟部',moea),('財政部進出口',trade),('中央銀行',cbc),('TAIBOR銀行公會',taibor),('BLS物價與就業',bls),('美國財政部',treasury),('美國GDP BEA',bea_update),('Fed日圓匯率',lambda:fed_history('jpy')),('Fed廣義美元指數',lambda:fed_history('broad')),('臺灣證交所',twse),('官方新聞',announcements),('發布日曆',calendar)]
 news=[]
 with cf.ThreadPoolExecutor(max_workers=8) as pool:
  futures={pool.submit(fn):name for name,fn in JOBS}

@@ -8,6 +8,13 @@ class Pptx extends RealPptx {async writeFile(args){args.fileName=path.join(tmp,a
 const ctx={console,document:doc,location:{search:''},localStorage:{getItem(){return null},setItem(){}},URLSearchParams,PptxGenJS:Pptx,setTimeout,Blob,URL};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(root+'/dist/i18n.js','utf8'),ctx);
 let app=fs.readFileSync(root+'/dist/app.js','utf8');app=app.slice(0,app.indexOf('function changeLanguage'));vm.runInContext(app,ctx);vm.runInContext('DATA='+fs.readFileSync(root+'/dist/data/macro.json','utf8'),ctx);
+for(const key of ['tw_gdp','us_gdp']){
+ const sp=vm.runInContext(`rawSpec('${key}','120')`,ctx);
+ assert.equal(sp.dates.length,41,'Ten-year GDP range includes 41 quarterly endpoints');
+ assert.equal(Number(sp.to.slice(0,4))-Number(sp.from.slice(0,4)),10);
+ assert.equal(vm.runInContext(`DEF.${key}.period`,ctx),'120');
+}
+assert.ok(vm.runInContext("periodOptions('120').includes('value=\"120\" selected')",ctx));
 (async()=>{
  for(const lang of ['CH','EN','JP']){
   vm.runInContext(`I18N.set('${lang}')`,ctx);

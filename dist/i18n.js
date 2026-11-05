@@ -31,6 +31,7 @@ const MacroI18n=(()=>{
  ['MARKET EXPECTATIONS','MARKET EXPECTATIONS','市場の織り込み'],['RELEASE CALENDAR','RELEASE CALENDAR','公表カレンダー'],
  ['美國CPI發布預告','US CPI release schedule','米国CPI公表予定'],['美國非農就業發布預告','US payrolls release schedule','米国雇用統計公表予定'],['TAIWAN','TAIWAN','台湾'],['UNITED STATES','UNITED STATES','米国'],['Federal Reserve','Federal Reserve','米連邦準備制度理事会（FRB）']
  ].forEach(x=>add(...x));
+ add("實質GDP對上年同季年增率；季度日期以季初表示，最新概估／初步值依官方修正。",'Real GDP change from the same quarter a year earlier; dates denote quarter starts. Latest advance/preliminary estimates follow official revisions.','実質GDPの前年同期比。日付は四半期初を表し、最新の概算・速報値は公式改定に従います。');
  const keys=Object.keys(messages).filter(k=>!['分','點','日','月','季','至'].includes(k)).sort((a,b)=>b.length-a.length);
  const pattern=new RegExp(keys.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
  function t(value){const text=String(value??'');if(language==='CH'||!text)return text;if(messages[text])return messages[text][language];if(messages[text.trim()])return text.replace(text.trim(),messages[text.trim()][language]);

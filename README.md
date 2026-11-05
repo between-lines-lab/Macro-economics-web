@@ -68,3 +68,5 @@ python -m http.server 8000 --directory dist
 新聞的現有標題附人工英日譯文；未收錄的新標題顯示當地語言的來源與日期標籤並連回原文，不憑空產生新聞內容。每張數據圖表與介面元件皆使用同一份翻譯目錄。
 
 `npm test` 驗證資料完整性，並實際產生三語×彩色／黑白六份含全部22張原生圖表的PPTX，檢查132個圖表及內嵌工作簿、英文標題無中文殘留，以及黑白輸出無非灰階繪圖色。測試檔案在暫存目錄建立，結束即清除。
+
+GDP charts default to the last 10 years (quarterly), with a 10-year period option shared by chart details and PPT exports. Taiwan history is refreshed directly from DGBAS’s economic growth chart; dates denote quarter starts and published revisions replace prior values. US BEA/FRED quarterly history is backfilled from 2015.
